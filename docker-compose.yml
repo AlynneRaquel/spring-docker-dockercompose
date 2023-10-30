@@ -1,0 +1,42 @@
+version: "3.9"
+
+networks:
+  dockerapp-network:
+    driver: bridge
+
+services:
+  dockerapp-mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "3307:3306"
+    networks:
+      - dockerapp-network
+      
+  dockerapp-redis:
+    image: redis:6.2.1-alpine
+    networks:
+      - dockerapp-network    
+
+  spring-docker-dockercompose:
+    image: spring-docker-dockercompose
+    command: ["/wait-for-it.sh", "dockerapp-mysql:3307", "-t", "60", "--", "java", "-jar", "api.jar"]
+    environment:
+      DB_HOST: dockerapp-mysql
+      SPRING_SESSION_STORE_TYPE: redis
+      SPRING_REDIS_HOST: dockerapp-redis
+    networks:
+      - dockerapp-network
+    depends_on:
+      - dockerapp-mysql
+      
+  dockerapp-proxy:
+    build: ./nginx
+    image: dockerapp-proxy
+    ports:
+      - "80:80"
+    networks:
+      - dockerapp-network
+    depends_on:
+      - spring-docker-dockercompose      
